@@ -38,6 +38,16 @@ def getAllTimelines():
         if id not in timelines:
             timelines[id] = []
         timelines[id].append(row)
+    to_remove = []
+    for timeline in timelines:
+        selected = False
+        for tweet in timelines[timeline]:
+            if int(tweet['selected']) == 1:
+                selected = True
+        if selected == False:
+            to_remove.append(timeline)
+    for timeline in to_remove:
+        del timelines[timeline]
     return timelines
 
 
@@ -91,9 +101,11 @@ def assignScores(timeline, scores):
 # MAIN CODE:
 #
 
+# Get data:
 g_scores, u_scores = retrieve_tweet_scores()
 timelines = getAllTimelines()
 
+# remove tweets we don't have scores for:
 for timeline in timelines:
     tweets_to_remove = []
     for tweet in timelines[timeline]:
@@ -102,12 +114,34 @@ for timeline in timelines:
     for tweet in tweets_to_remove:
         timelines[timeline].remove(tweet)
     
-
-
-
 # Scoring system in use:
 scores = u_scores
 
+
+
+timeline_list = []
+selected_dict = {}
+selected_total = {}
+for t in timelines:
+    timeline = assignScores(timelines[t], scores)
+    ordered = sorted(timeline, key=lambda x: x['score'])
+    disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+    num_selected = 0
+    for tweet in timeline:
+        if int(tweet['selected']) == 1:
+            num_selected += 1
+    timeline_list.append({'selected':num_selected,'disparity':disparity})
+    if num_selected not in selected_dict:
+        selected_dict[num_selected] = 0.0
+        selected_total[num_selected] = 0.0
+    selected_dict[num_selected] += disparity
+    selected_total[num_selected] += 1.0
+for selected in selected_dict:
+    print selected,selected_dict[selected] / selected_total[selected]
+
+
+exit()
+# 1) Ordered question stuff:
 for lim in range (1, 21):
     print "%d" % (lim),
     total = 0
@@ -131,6 +165,6 @@ for lim in range (1, 21):
                         found = True
             except:
                 continue
-
+        
 #    print total,"/",total_counter,"="
     print "%f" % ((total+0.0)/(total_counter+0.0))
