@@ -2,3 +2,4 @@ graphs/
 data/
 .DS_Store
 *.pyc
+*.swp
