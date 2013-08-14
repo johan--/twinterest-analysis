@@ -1,0 +1,4 @@
+graphs/
+data/
+.DS_Store
+*.pyc

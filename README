@@ -1,0 +1,34 @@
+This directory contains the files necessary for processing the data received back from the Twinterest experiment.
+
+In particular, the scripts collectively take the raw data back from the experiment (in the 'twinterest.db' file), create databases of training and testing data, produce ARFF files from the data, and finally create the training models and testing data sets.
+
+The scripts should be run in this order:
+1. user_getter.py
+    - looks through 'twinterest.db' and collects a list of Twitter users
+        who have had their Tweets evaluated (i.e. were selected as interesting
+        or non-interesting by Twinterest participants).
+    - generates a table, 'tweets.db', containing the Tweets of all evaluated
+        users, including information on the users themselves (user data
+        is the same for each Tweet by the same author).
+        These tweets are ones collected for each user in order to train individual
+        user models.
+    - generates a databasse, 'users.db', containg information on all evaluated
+        users (the information is that which is copied in to 'tweets.db' for 
+        each user's tweets).
+
+2. data_aggregator.py
+    - uses the 'tweets.db' and 'users.db' databases created by 'user_getter.py'.
+    - creates a training database, 'training.db' to hold the training Tweets
+        in 'tweets.db'.
+        This new database (training.db) can then be used to generate individual
+        training ARFF files for each user.
+    - creates a testing database, 'testing.db' by collecting 
+        all evaluated Tweets from 'twinterest.db'.
+
+3. arff_exporter.py (uses feature_manager.py)
+    - reads 'training.db' to generate a set of ARFF files for training user models
+    - reads 'testing.db' to generate an ARFF file containg all test data (to 
+        be evaluated against the global model and the appropriate user model
+        for each Tweet).
+
+
