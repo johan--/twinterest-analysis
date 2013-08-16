@@ -105,6 +105,9 @@ def assignScores(timeline, scores):
 g_scores, u_scores = retrieve_tweet_scores()
 timelines = getAllTimelines()
 
+# Scoring system in use:
+scores = u_scores
+
 # remove tweets we don't have scores for:
 for timeline in timelines:
     tweets_to_remove = []
@@ -113,58 +116,201 @@ for timeline in timelines:
             tweets_to_remove.append(tweet)
     for tweet in tweets_to_remove:
         timelines[timeline].remove(tweet)
+
+
+def exp7():
+    total_scores = []
+    chosen_scores = []
+    for t in timelines:
+        timeline = assignScores(timelines[t],scores)
+        ordered = sorted(timeline, key=lambda x: x['score'])
+        total_disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+        chosen_scores = []
+        all_scores = []
+        num_selected = 0
+        for tweet in timeline:
+            all_scores.append(tweet['score'])
+            if int(tweet['selected'] == 1):
+                num_selected += 1
+                chosen_scores.append(tweet['score'])
+        if num_selected > 0:
+            total_chosen = 0.0
+            total_all = 0.0
+            for score in chosen_scores:
+                total_chosen += score
+            avg_chosen = total_chosen / len(chosen_scores)
+            for score in all_scores:
+                total_all += score
+            avg_all = total_all / len(all_scores)
+            total_scores.append(avg_all)
+            chosen_scores.append(avg_chosen)
+            
+
+    total_total = 0.0
+    total_chosen = 0.0
+    for disparity in total_disparities:
+        total_total += disparity
+    for disparity in chosen_disparities:
+        total_chosen += disparity
+    print (total_total / len(total_disparities))
+    print (total_chosen / len(chosen_disparities))
+ 
+
+# 6) compare disparity of selected tweets vs total disparity of timeline
+def exp6():
+    total_disparities = []
+    chosen_disparities = []
+    for t in timelines:
+        timeline = assignScores(timelines[t],scores)
+        ordered = sorted(timeline, key=lambda x: x['score'])
+        total_disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+        chosen_scores = []
+        num_selected = 0
+        for tweet in timeline:
+            if int(tweet['selected'] == 1):
+                num_selected += 1
+                chosen_scores.append(tweet['score'])
+        ordered_chosen = sorted(chosen_scores)
+        chosen_disparity = 0    
+        if num_selected > 1:
+            chosen_disparity = ordered_chosen[-1] - ordered_chosen[0]
+        if num_selected > 0:
+            total_disparities.append(total_disparity)
+            chosen_disparities.append(chosen_disparity)
+    total_total = 0.0
+    total_chosen = 0.0
+    for disparity in total_disparities:
+        total_total += disparity
+    for disparity in chosen_disparities:
+        total_chosen += disparity
+    print (total_total / len(total_disparities))
+    print (total_chosen / len(chosen_disparities))
+
+# 5) inverse of exp1 (i.e. how often are non-interesting Tweets NOT selected?)
+def exp5():
+     for lim in range (1, 21):
+        print "%d" % (lim),
+        total = 0
+        total_counter = 0
+        for t in timelines:
+            timeline = assignScores(timelines[t], scores)
+            ordered = sorted(timeline, key=lambda x: x['score'])
+            ordered.reverse()
+            disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+            
+            found = False 
+            min_timeline = 0
+            limit = lim
+
+            if len(ordered) > min_timeline: 
+                total_counter += 1
+                try:
+                    for i in range(0,limit):
+                        if ordered[i]['selected'] == 0 and found == False:
+                            total += 1
+                            found = True
+                except:
+                    continue
+            
+#    print total,"/",total_counter,"="
+        print "%f" % ((total+0.0)/(total_counter+0.0))
+   
     
-# Scoring system in use:
-scores = u_scores
+
+# 4) frequency distribution of number of selected tweets in each timeline
+def exp4():
+    selected_dict = {}
+    for t in timelines:
+        timeline = timelines[t]
+        num_selected = 0
+        for tweet in timeline:
+            if int(tweet['selected']) == 1:
+                num_selected += 1
+        if num_selected not in selected_dict:
+            selected_dict[num_selected] = 0
+        selected_dict[num_selected] += 1
+    for selected in selected_dict:
+        print selected,selected_dict[selected]
+
+# 3) general matching of selected vs. high-scored
+def exp3():
+    for thresh in range(1, 50):
+        int_thresh = thresh
+        num_interesting = 0.0
+        num_interesting_and_scored = 0.0
+        num_scored = 0.0
+        num_scored_and_interesting = 0.0
+        for t in timelines:
+            timeline = assignScores(timelines[t], scores)
+            for tweet in timeline:
+                if int(tweet['selected']) == 1:
+                    num_interesting += 1.0
+                    if tweet['score'] > int_thresh:
+                        num_interesting_and_scored += 1.0
+                if tweet['score'] > int_thresh:
+                    num_scored += 1
+                    if int(tweet['selected']) == 1:
+                        num_scored_and_interesting += 1
+#    print thresh,(num_interesting_and_scored/num_interesting)
+        print (num_scored_and_interesting/num_scored)
+        #print "of selected, we agree:",(num_interesting_and_scored/num_interesting)
+        #print "of scored high, THEY agree:",(num_scored_and_interesting/num_scored)
 
 
-
-timeline_list = []
-selected_dict = {}
-selected_total = {}
-for t in timelines:
-    timeline = assignScores(timelines[t], scores)
-    ordered = sorted(timeline, key=lambda x: x['score'])
-    disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
-    num_selected = 0
-    for tweet in timeline:
-        if int(tweet['selected']) == 1:
-            num_selected += 1
-    timeline_list.append({'selected':num_selected,'disparity':disparity})
-    if num_selected not in selected_dict:
-        selected_dict[num_selected] = 0.0
-        selected_total[num_selected] = 0.0
-    selected_dict[num_selected] += disparity
-    selected_total[num_selected] += 1.0
-for selected in selected_dict:
-    print selected,selected_dict[selected] / selected_total[selected]
-
-
-exit()
-# 1) Ordered question stuff:
-for lim in range (1, 21):
-    print "%d" % (lim),
-    total = 0
-    total_counter = 0
+# 2) Num selections vs disparity
+def exp2():
+    timeline_list = []
+    selected_dict = {}
+    selected_total = {}
     for t in timelines:
         timeline = assignScores(timelines[t], scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
-
         disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
-        
-        found = False 
-        min_timeline = 17
-        limit = lim
+        num_selected = 0
+        for tweet in timeline:
+            if int(tweet['selected']) == 1:
+                num_selected += 1
+        timeline_list.append({'selected':num_selected,'disparity':disparity})
+        if num_selected not in selected_dict:
+            selected_dict[num_selected] = 0.0
+            selected_total[num_selected] = 0.0
+        selected_dict[num_selected] += disparity
+        selected_total[num_selected] += 1.0
+    for selected in selected_dict:
+        print selected,selected_dict[selected] / selected_total[selected]
 
-        if len(ordered) > min_timeline: 
-            total_counter += 1
-            try:
-                for i in range(0,limit):
-                    if ordered[i]['selected'] == 1 and found == False:
-                        total += 1
-                        found = True
-            except:
-                continue
-        
+
+
+# 1) Ordered question stuff:
+def exp1():
+    for lim in range (1, 21):
+        print "%d" % (lim),
+        total = 0
+        total_counter = 0
+        for t in timelines:
+            timeline = assignScores(timelines[t], scores)
+            ordered = sorted(timeline, key=lambda x: x['score'])
+
+            disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+            
+            found = False 
+            min_timeline = 17
+            limit = lim
+
+            if len(ordered) > min_timeline: 
+                total_counter += 1
+                try:
+                    for i in range(0,limit):
+                        if ordered[i]['selected'] == 1 and found == False:
+                            total += 1
+                            found = True
+                except:
+                    continue
+            
 #    print total,"/",total_counter,"="
-    print "%f" % ((total+0.0)/(total_counter+0.0))
+        print "%f" % ((total+0.0)/(total_counter+0.0))
+
+
+
+exp6()
+
