@@ -118,42 +118,92 @@ for timeline in timelines:
         timelines[timeline].remove(tweet)
 
 
+# 9) heatmap of chosen Tweets
+def exp9():
+    heatmap = []
+    for t in timelines:
+        timeline = assignScores(timelines[t], scores)
+        ordered = sorted(timeline, key=lambda x: x['score'])
+        t_map = []
+        for i,tweet in enumerate(ordered):
+            if tweet['selected'] == 1:
+                t_map.append(i)
+        heatmap.append(t_map)
+    row = 1
+    for m in heatmap:
+        for t in m:
+            print row,
+            print t,
+        row += 1
+        print ""
+
+
+# 8) average ratio of scores of chosen tweets : all tweets
+def exp8():
+    ratios = []
+    for t in timelines:
+        timeline = assignScores(timelines[t],scores)
+        ordered = sorted(timeline, key=lambda x: x['score'])
+        total = []
+        chosen = []
+        num_selected = 0
+        for tweet in timeline:
+            total.append(tweet['score'])
+            if int(tweet['selected'] == 1):
+                num_selected += 1
+                chosen.append(tweet['score'])
+        if num_selected > 0:
+            total_chosen = 0.0
+            total_all = 0.0
+            for score in chosen:
+                total_chosen += score
+            avg_chosen = total_chosen / (len(chosen)+0.0)
+            for score in total:
+                total_all += score
+            avg_all = total_all / (len(total)+0.0)
+            ratio = total_chosen / avg_all
+            ratios.append(ratio)
+    total_ratio = 0.0
+    for ratio in ratios:
+        total_ratio += ratio
+    print (total_ratio / len(ratios))
+
+
+# 7) compare average score of selected tweets vs all tweets
 def exp7():
     total_scores = []
     chosen_scores = []
     for t in timelines:
         timeline = assignScores(timelines[t],scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
-        total_disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
-        chosen_scores = []
-        all_scores = []
+        total = []
+        chosen = []
         num_selected = 0
         for tweet in timeline:
-            all_scores.append(tweet['score'])
+            total.append(tweet['score'])
             if int(tweet['selected'] == 1):
                 num_selected += 1
-                chosen_scores.append(tweet['score'])
+                chosen.append(tweet['score'])
         if num_selected > 0:
             total_chosen = 0.0
             total_all = 0.0
-            for score in chosen_scores:
+            for score in chosen:
                 total_chosen += score
-            avg_chosen = total_chosen / len(chosen_scores)
-            for score in all_scores:
+            avg_chosen = total_chosen / (len(chosen)+0.0)
+            for score in total:
                 total_all += score
-            avg_all = total_all / len(all_scores)
+            avg_all = total_all / (len(total)+0.0)
             total_scores.append(avg_all)
             chosen_scores.append(avg_chosen)
-            
-
     total_total = 0.0
     total_chosen = 0.0
-    for disparity in total_disparities:
-        total_total += disparity
-    for disparity in chosen_disparities:
-        total_chosen += disparity
-    print (total_total / len(total_disparities))
-    print (total_chosen / len(chosen_disparities))
+
+    for avg in total_scores:
+        total_total += avg
+    for avg in chosen_scores:
+        total_chosen += avg
+    print (total_total / len(total_scores))
+    print (total_chosen / len(chosen_scores))
  
 
 # 6) compare disparity of selected tweets vs total disparity of timeline
@@ -312,5 +362,5 @@ def exp1():
 
 
 
-exp6()
+exp7()
 
