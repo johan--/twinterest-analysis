@@ -34,7 +34,7 @@ def getAllTimelines():
     result = c.execute("SELECT * FROM timeline").fetchall()
     timelines = {}
     for row in result:
-        id = str(row[0])+"/"+str(row[1])
+        id = str(row['session_id'])+"/"+str(row['question'])
         if id not in timelines:
             timelines[id] = []
         timelines[id].append(row)
@@ -118,6 +118,38 @@ for timeline in timelines:
         timelines[timeline].remove(tweet)
 
 
+def exp10():
+    totals = {}
+    selected = {}
+    for t in timelines:
+        if len(timelines[t]) > 20:
+            print t
+            print "error"
+            exit()
+        timeline = assignScores(timelines[t], scores)
+        ordered = sorted(timeline, key=lambda x: x['score'])
+        uninteresting = []
+        for i in range(len(ordered)):
+            uninteresting.append(ordered[i])
+
+            if (i+1) not in totals:
+                totals[i+1] = 0.0
+                selected[i+1] = 0.0
+            totals[i+1] += 1.0
+            selected_check = False
+            for tweet in uninteresting:
+#                print tweet['score'],
+                if tweet['selected'] == 1:
+                    selected_check = True
+#            print ""
+            if selected_check == False:
+                selected[i+1] += 1.0
+ #       exit()
+    for total in totals:
+        print selected[total]/totals[total]
+exp10()
+exit()
+
 # 9) heatmap of chosen Tweets
 def exp9():
     heatmap = []
@@ -125,7 +157,9 @@ def exp9():
         timeline = assignScores(timelines[t], scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
         t_map = []
-        for i,tweet in enumerate(ordered):
+        # replace with 'ordered' for heatmap of chosen tweets in timelines ordered
+        # by score
+        for i,tweet in enumerate(timeline):            
             if tweet['selected'] == 1:
                 t_map.append(i)
         heatmap.append(t_map)
