@@ -128,27 +128,30 @@ def exp10():
             exit()
         timeline = assignScores(timelines[t], scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
-        uninteresting = []
-        for i in range(len(ordered)):
-            uninteresting.append(ordered[i])
+        total_tweet_score = 0
+        for tweet in ordered:
+            total_tweet_score += tweet['score']
 
-            if (i+1) not in totals:
-                totals[i+1] = 0.0
-                selected[i+1] = 0.0
-            totals[i+1] += 1.0
-            selected_check = False
-            for tweet in uninteresting:
+        if total_tweet_score > 1:
+            uninteresting = []
+            for i in range(len(ordered)):
+                uninteresting.append(ordered[i])
+
+                if (i+1) not in totals:
+                    totals[i+1] = 0.0
+                    selected[i+1] = 0.0
+                totals[i+1] += 1.0
+                selected_check = False
+                for tweet in uninteresting:
 #                print tweet['score'],
-                if tweet['selected'] == 1:
-                    selected_check = True
+                    if tweet['selected'] == 1:
+                        selected_check = True
 #            print ""
-            if selected_check == False:
-                selected[i+1] += 1.0
- #       exit()
+                if selected_check == False:
+                    selected[i+1] += 1.0
+     #       exit()
     for total in totals:
         print selected[total]/totals[total]
-exp10()
-exit()
 
 # 9) heatmap of chosen Tweets
 def exp9():
@@ -367,34 +370,56 @@ def exp2():
 
 # 1) Ordered question stuff:
 def exp1():
+    total_perc_perc = {}
+    total_perc_total = {}
     for lim in range (1, 21):
         print "%d" % (lim),
         total = 0
         total_counter = 0
         for t in timelines:
             timeline = assignScores(timelines[t], scores)
-            ordered = sorted(timeline, key=lambda x: x['score'])
-
-            disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
             
-            found = False 
-            min_timeline = 17
-            limit = lim
+            # Get number of selected tweets for this question:
+            num_total_selected = 0
+            for tweet in timeline:
+                if tweet['selected'] == 1:
+                    num_total_selected += 1
 
-            if len(ordered) > min_timeline: 
-                total_counter += 1
-                try:
-                    for i in range(0,limit):
-                        if ordered[i]['selected'] == 1 and found == False:
-                            total += 1
-                            found = True
-                except:
-                    continue
+            if num_total_selected == 1:
+
+                ordered = sorted(timeline, key=lambda x: x['score'])
+
+                found = False
+                
+                # NEED TO THINK ABOUT THIS STUFF (i.e. not all timelines
+                # are of this length)
+                min_timeline = 0
+                limit = lim
+
+                # Now see if a selected Tweet appears in top 'lim' of
+                # Tweets for this timeline (if so, increment 'total'):
+                if len(ordered) > min_timeline: 
+                    total_counter += 1
+                    try:
+                        for i in range(0,limit):
+                            if ordered[i]['selected'] == 1 and found == False:
+                                total += 1
+                                if lim not in total_perc_perc:
+                                    total_perc_perc[lim] = 0.0
+                                    total_perc_total[lim] = 0.0
+                                # Store PROPORTION of closeness to the top
+                                total_perc_perc[lim] += (i+1)/len(ordered)
+                                total_perc_total[lim] += 1.0
+                                found = True
+                    except:
+                        continue
             
-#    print total,"/",total_counter,"="
         print "%f" % ((total+0.0)/(total_counter+0.0))
 
+    for lim in total_perc_perc:
+        print lim, (total_perc_perc[lim] / total_perc_total[lim])
 
 
-exp7()
+
+exp1()
 
