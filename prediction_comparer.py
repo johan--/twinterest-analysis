@@ -26,8 +26,9 @@ def getTimelineIDs():
         ids.append(str(row[0])+"/"+str(row[1]))
     return ids
 
-# Get dict of all timelines of form: <timeline_id>:[<tweets>]
-def getAllTimelines():
+
+# Get dict of all timelines of form: <timeline_id>:[<tweets>] that we have scores for:
+def getAllTimelines(mk_turk = True, non_mk_turk = True):
     con = sqlite3.connect(source_db)
     con.row_factory = sqlite3.Row
     c = con.cursor()
@@ -35,9 +36,18 @@ def getAllTimelines():
     timelines = {}
     for row in result:
         id = str(row['session_id'])+"/"+str(row['question'])
-        if id not in timelines:
-            timelines[id] = []
-        timelines[id].append(row)
+        if int(row['mk_turk']) == 1:
+            if mk_turk == True:
+                if id not in timelines:
+                    timelines[id] = []
+                timelines[id].append(row)
+        if int(row['mk_turk']) == 0:
+            if non_mk_turk == True:
+                if id not in timelines:
+                    timelines[id] = []
+                timelines[id].append(row)
+
+    # Remove timelines with no tweet selections:
     to_remove = []
     for timeline in timelines:
         selected = False
@@ -49,6 +59,7 @@ def getAllTimelines():
     for timeline in to_remove:
         del timelines[timeline]
     return timelines
+
 
 
 # Get the timeline given by a timeline ID:
@@ -73,16 +84,16 @@ def getInteresting(id):
 
 # return scores from expected retweet values for  each tweet from experimental set:
 def retrieve_tweet_scores():
-    f = open("Data/predictions.csv", "rb")
+    f = open("Data/predictions2.csv", "rb")
     reader = csv.reader(f)
     global_scores = {}
     user_scores = {}
     for i, row in enumerate(reader):
         # row[0]=id,row[1]=user_id,row[2]=text,row[3]=count,row[4]=g_pred,row[5]=u_pred
         if i > 0:
-            r_count = int(row[3])+0.0
-            g = int(row[4])+0.0
-            u = int(row[5])+0.0
+            r_count = int(row[1])+0.0
+            g = int(row[2])+0.0
+            u = int(row[3])+0.0
             global_scores[int(row[0])] = r_count/g
             user_scores[int(row[0])] = r_count/u
     return (global_scores, user_scores)
@@ -103,7 +114,9 @@ def assignScores(timeline, scores):
 
 # Get data:
 g_scores, u_scores = retrieve_tweet_scores()
-timelines = getAllTimelines()
+timelines = getAllTimelines(mk_turk = True, non_mk_turk = False)
+
+print len(timelines),"timelines to analyse"
 
 # Scoring system in use:
 scores = u_scores
@@ -118,6 +131,7 @@ for timeline in timelines:
         timelines[timeline].remove(tweet)
 
 
+# 10) chance of not picking top n non-interesting Tweets (polar opposite to exp1):
 def exp10():
     totals = {}
     selected = {}
@@ -128,52 +142,71 @@ def exp10():
             exit()
         timeline = assignScores(timelines[t], scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
-        total_tweet_score = 0
+
+        # Only proceed with timelines having a precise number of Tweets selected:
+        total_num_tweets = 0
         for tweet in ordered:
-            total_tweet_score += tweet['score']
+            if tweet['selected'] == 1:
+                total_num_tweets += 1
+        if total_num_tweets == 3:
 
-        if total_tweet_score > 1:
-            uninteresting = []
-            for i in range(len(ordered)):
-                uninteresting.append(ordered[i])
+            total_tweet_score = 0
+            for tweet in ordered:
+                total_tweet_score += tweet['score']
 
-                if (i+1) not in totals:
-                    totals[i+1] = 0.0
-                    selected[i+1] = 0.0
-                totals[i+1] += 1.0
-                selected_check = False
-                for tweet in uninteresting:
-#                print tweet['score'],
-                    if tweet['selected'] == 1:
-                        selected_check = True
-#            print ""
-                if selected_check == False:
-                    selected[i+1] += 1.0
-     #       exit()
+            if total_tweet_score >1:
+                uninteresting = []
+                for i in range(len(ordered)):
+                    uninteresting.append(ordered[i])
+
+                    if (i+1) not in totals:
+                        totals[i+1] = 0.0
+                        selected[i+1] = 0.0
+                    totals[i+1] += 1.0
+                    selected_check = False
+                    for tweet in uninteresting:
+                        if tweet['selected'] == 1:
+                            selected_check = True
+                    if selected_check == False:
+                        selected[i+1] += 1.0
     for total in totals:
         print selected[total]/totals[total]
+
 
 # 9) heatmap of chosen Tweets
 def exp9():
     heatmap = []
+    total_for_avg = 0.0
+    total_for_avg_total = 0.0
+    total_proportion_avg = 0.0
+    total_proportion_avg_total = 0.0
     for t in timelines:
         timeline = assignScores(timelines[t], scores)
         ordered = sorted(timeline, key=lambda x: x['score'])
         t_map = []
+        t_map2 = []
         # replace with 'ordered' for heatmap of chosen tweets in timelines ordered
         # by score
         for i,tweet in enumerate(timeline):            
             if tweet['selected'] == 1:
                 t_map.append(i)
-        heatmap.append(t_map)
+                t_map2.append((i+0.0)/(len(timeline)+0.0))
+                total_for_avg += (i+0.0)/(len(timeline)+0.0)
+                total_for_avg_total += 1
+        heatmap.append(t_map2)
     row = 1
+    f = open("heatmap1.txt","w")
     for m in heatmap:
+        print row,
+        f.write(str(row)+" ")
         for t in m:
-            print row,
+            f.write(str(t)+" ")
             print t,
         row += 1
         print ""
-
+        f.write("\n")
+    f.close()
+    print (total_for_avg / total_for_avg_total)
 
 # 8) average ratio of scores of chosen tweets : all tweets
 def exp8():
@@ -283,26 +316,28 @@ def exp5():
             timeline = assignScores(timelines[t], scores)
             ordered = sorted(timeline, key=lambda x: x['score'])
             ordered.reverse()
-            disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
-            
-            found = False 
-            min_timeline = 0
-            limit = lim
+            if len(ordered) > 5:
+                print ordered[0]['score']
+                print ordered[-1]['score']
+                disparity = scores[ordered[-1]['tweet_id']] - scores[ordered[0]['tweet_id']]
+                
+                found = False 
+                min_timeline = 0
+                limit = lim
 
-            if len(ordered) > min_timeline: 
-                total_counter += 1
-                try:
-                    for i in range(0,limit):
-                        if ordered[i]['selected'] == 0 and found == False:
-                            total += 1
-                            found = True
-                except:
-                    continue
+                if len(ordered) > min_timeline: 
+                    total_counter += 1
+                    try:
+                        for i in range(0,limit):
+                            if ordered[i]['selected'] == 0 and found == False:
+                                total += 1
+                                found = True
+                    except:
+                        continue
             
 #    print total,"/",total_counter,"="
         print "%f" % ((total+0.0)/(total_counter+0.0))
-   
-    
+
 
 # 4) frequency distribution of number of selected tweets in each timeline
 def exp4():
@@ -372,20 +407,32 @@ def exp2():
 def exp1():
     total_perc_perc = {}
     total_perc_total = {}
+
+    total_lengths = 0
+    for t in timelines:
+        total_lengths += len(timelines[t])
+    print total_lengths / len(timelines)
+    exit()
+
     for lim in range (1, 21):
         print "%d" % (lim),
-        total = 0
-        total_counter = 0
         for t in timelines:
             timeline = assignScores(timelines[t], scores)
             
-            # Get number of selected tweets for this question:
+            # Get number of selected tweets for this timeline:
             num_total_selected = 0
             for tweet in timeline:
                 if tweet['selected'] == 1:
                     num_total_selected += 1
 
-            if num_total_selected == 1:
+            # Get total sum of scores for timeline:
+            total_score_sum = 0
+            for tweet in timeline:
+                total_score_sum += tweet['score']
+        
+            # Only proceed for timelines with a specific number of selections and if
+            # the sum of all scores is greater than 1 (prevent cases with loads of 0s)
+            if num_total_selected == 3 and total_score_sum > 1:
 
                 ordered = sorted(timeline, key=lambda x: x['score'])
 
@@ -399,11 +446,9 @@ def exp1():
                 # Now see if a selected Tweet appears in top 'lim' of
                 # Tweets for this timeline (if so, increment 'total'):
                 if len(ordered) > min_timeline: 
-                    total_counter += 1
                     try:
                         for i in range(0,limit):
                             if ordered[i]['selected'] == 1 and found == False:
-                                total += 1
                                 if lim not in total_perc_perc:
                                     total_perc_perc[lim] = 0.0
                                     total_perc_total[lim] = 0.0
@@ -414,11 +459,11 @@ def exp1():
                     except:
                         continue
             
-        print "%f" % ((total+0.0)/(total_counter+0.0))
+#        print "%f" % ((total+0.0)/(total_counter+0.0))
 
     for lim in total_perc_perc:
+        l = lim
         print lim, (total_perc_perc[lim] / total_perc_total[lim])
-
 
 
 exp1()

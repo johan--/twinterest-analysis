@@ -33,7 +33,7 @@ def getPredictionsFromGlobalCorpus(read = False):
     output = ""
     if read == True:
         print "Making global predictions..."
-        process = subprocess.Popen(["java", "-Xmx1500M", "weka.classifiers.bayes.BayesNet", "-T", global_arff+"/global_test.arff", "-l", global_models+"/bayes.model", "-p", "0"], stdout=subprocess.PIPE)
+        process = subprocess.Popen(["java", "-Xmx5500M", "weka.classifiers.bayes.BayesNet", "-T", global_arff+"/global_test.arff", "-l", global_models+"/bayes.model", "-p", "0"], stdout=subprocess.PIPE)
         output = process.communicate()[0]
         outFile = open("data/prediction_outputs/global.txt", "w")
         outFile.write(output)
@@ -51,7 +51,11 @@ def getPredictionsFromGlobalCorpus(read = False):
         info = line.split()
         if len(info) == 4:
             predictions.append((info[2].split(":"))[1])
-    return predictions
+
+    ids = []
+    for tweet in testing:
+        ids.append(tweet['id'])
+    return (predictions, ids)
 
 def getPredictionsFromEachUserCorpus(read = False):
     predDict = {}
@@ -86,20 +90,38 @@ def getPredictionsFromEachUserCorpus(read = False):
             if len(info) == 4:
                 predictions.append((info[2].split(":"))[1])
         predListDict[int(key)] = predictions
+   
+    tweets_of_user = {}
+    for tweet in testing:
+        if tweet['user_id'] not in tweets_of_user:
+            tweets_of_user[tweet['user_id']] = []
+        tweets_of_user[tweet['user_id']].append(int(tweet['id']))
+
     
     print "Ordering user predictions (to same as in experimental database and globals)..."
     userOrder = []
     for row in testing:
         userOrder.append(row['user_id'])
     user_predictions = []
+    idOrder = []
     userSet = set()
     for user in userOrder:
+        tweets_of_this_user = tweets_of_user[int(user)]
+        counter = 0
         if not user in userSet:
-            for item in predListDict[user]:
-                user_predictions.append(item)
+            if user in predListDict:
+                if len(tweets_of_this_user) == len(predListDict[user]):
+                    for item in predListDict[user]:
+                        user_predictions.append(item)
+                        idOrder.append(tweets_of_this_user[counter])
+                        counter += 1
+            else:
+                print "fatal error: could not find this user:"
+                print user
+                exit()
+
             userSet.add(user)
- 
-    return user_predictions
+    return (user_predictions,idOrder)
 
 def buildAllUserModels(in_dir=user_arff, out_dir=user_models, redo = False):
     for subdir, dirs, files in os.walk(in_dir):
@@ -131,9 +153,29 @@ buildAllUserModels(redo = False)
 # Following two calls return a list of predictions for tweets in experimental database.
 # Set read to False to read predictions from file rather than from model (need to generate file
 # from model first time though)
-global_predictions = getPredictionsFromGlobalCorpus(read = False) # predicted against global corpus
-user_predictions = getPredictionsFromEachUserCorpus(read = False) # predicted against that user's other tweets
+global_predictions, g_ids = getPredictionsFromGlobalCorpus(read = False) # predicted against global corpus
+user_predictions, u_ids = getPredictionsFromEachUserCorpus(read = False) # predicted against that user's other tweets
 
+print "finished generating/reading predictions"
+
+print len(global_predictions),len(g_ids)
+gdict_preds = {}
+for i,pred in enumerate(global_predictions):
+    gdict_preds[g_ids[i]] = int(pred.split("-")[1])
+print len(user_predictions),len(u_ids)
+udict_preds = {}
+for i,pred in enumerate(user_predictions):
+    udict_preds[u_ids[i]] = int(pred.split("-")[1])
+
+predFile = open("Data/predictions2.csv", "w")
+predFile.write("tweet_id,retweet_count,global_prediction,user_prediction\n")
+for id in udict_preds:
+    u_pred = udict_preds[id]
+    g_pred = gdict_preds[id]
+    expected = testingDict[id]['retweet_count']
+    predFile.write(str(id)+","+str(expected)+","+str(g_pred)+","+str(u_pred)+"\n")
+predFile.close()
+exit()
 # Create some dictionaries to hold the preditcion/real data.
 # Each dict has key tweet_id and has the predicted/real outcome as the content for that tweet.
 # e.g. reals[1233456] = 3-6 retweets
@@ -141,15 +183,22 @@ reals = {}
 user_ids = {}
 globalPredictions = {}
 userPredictions = {}
+print len(global_predictions)
+print len(user_predictions)
 for i in range(len(global_predictions)):
-    reals[testing[i]['id']] = testing[i]['retweet_count']
-    user_ids[testing[i]['id']] = testing[i]['user_id']
-    globalPredictions[testing[i]['id']] = int((global_predictions[i].split("-"))[1])
-    userPredictions[testing[i]['id']] = int((user_predictions[i].split("-"))[1])
+    try:
+        reals[testing[i]['id']] = testing[i]['retweet_count']
+        user_ids[testing[i]['id']] = testing[i]['user_id']
+        globalPredictions[testing[i]['id']] = int((global_predictions[i].split("-"))[1])
+        userPredictions[testing[i]['id']] = int((user_predictions[i].split("-"))[1])
 
-
+    except Exception as e:
+        print e
+        print user_predictions[i]
+        exit()
 
 print "Writing CSV file..."
+exit()
 counter = 0
 total_counter = 0
 # Perform checks to compare predictions to real data and write to file
