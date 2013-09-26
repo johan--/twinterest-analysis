@@ -114,7 +114,7 @@ def assignScores(timeline, scores):
 
 # Get data:
 g_scores, u_scores = retrieve_tweet_scores()
-timelines = getAllTimelines(mk_turk = True, non_mk_turk = False)
+timelines = getAllTimelines(mk_turk = False, non_mk_turk = True)
 
 print len(timelines),"timelines to analyse"
 
@@ -170,8 +170,12 @@ def exp10():
                     if selected_check == False:
                         selected[i+1] += 1.0
     for total in totals:
-        print selected[total]/totals[total]
+#        print selected[total]/totals[total] # proportion
+        print selected[total] # raw no. timelines with this case
 
+
+exp10()
+exit()
 
 # 9) heatmap of chosen Tweets
 def exp9():
@@ -335,7 +339,6 @@ def exp5():
                     except:
                         continue
             
-#    print total,"/",total_counter,"="
         print "%f" % ((total+0.0)/(total_counter+0.0))
 
 
@@ -411,11 +414,11 @@ def exp1():
     total_lengths = 0
     for t in timelines:
         total_lengths += len(timelines[t])
-    print total_lengths / len(timelines)
-    exit()
 
     for lim in range (1, 21):
-        print "%d" % (lim),
+    #    print "%d" % (lim),
+        total = 0
+        total_counter = 0
         for t in timelines:
             timeline = assignScores(timelines[t], scores)
             
@@ -429,13 +432,13 @@ def exp1():
             total_score_sum = 0
             for tweet in timeline:
                 total_score_sum += tweet['score']
-        
+             
             # Only proceed for timelines with a specific number of selections and if
             # the sum of all scores is greater than 1 (prevent cases with loads of 0s)
-            if num_total_selected == 3 and total_score_sum > 1:
+            if num_total_selected == 3 and total_score_sum > 0:
 
                 ordered = sorted(timeline, key=lambda x: x['score'])
-
+                ordered.reverse() #Ensure HIGHEST score is first
                 found = False
                 
                 # NEED TO THINK ABOUT THIS STUFF (i.e. not all timelines
@@ -446,25 +449,17 @@ def exp1():
                 # Now see if a selected Tweet appears in top 'lim' of
                 # Tweets for this timeline (if so, increment 'total'):
                 if len(ordered) > min_timeline: 
+                    total_counter += 1
                     try:
                         for i in range(0,limit):
                             if ordered[i]['selected'] == 1 and found == False:
-                                if lim not in total_perc_perc:
-                                    total_perc_perc[lim] = 0.0
-                                    total_perc_total[lim] = 0.0
-                                # Store PROPORTION of closeness to the top
-                                total_perc_perc[lim] += (i+1)/len(ordered)
-                                total_perc_total[lim] += 1.0
+                                total += 1
                                 found = True
                     except:
                         continue
             
-#        print "%f" % ((total+0.0)/(total_counter+0.0))
-
-    for lim in total_perc_perc:
-        l = lim
-        print lim, (total_perc_perc[lim] / total_perc_total[lim])
-
+        print "%f" % ((total+0.0)/(total_counter+0.0)) # proportion of timelines
+#        print total # This is the raw number of timelines with this case
 
 exp1()
 
