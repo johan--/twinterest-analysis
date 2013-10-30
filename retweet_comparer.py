@@ -1,5 +1,5 @@
-# Comparing prediction results with those declared interesting in Twinteresting
-# experiment.
+# Same as 'prediction_comparer.py', but instead attempts to use the actual retweet volume as a metric
+# for Tweet interestingness.
 #
 # Simply call the experiment to run. e.g. to run experiment 5, call 'exp5()'. All output 
 # is produced by the experimental methods themselves
@@ -8,6 +8,7 @@
 import csv, sqlite3
 
 source_db = "data/databases/twinterest.db"
+tweets_db = "data/databases/tweets.db"
 prediction_file = "Data/predictions.csv"
 
 
@@ -32,24 +33,35 @@ def getTimelineIDs():
 
 
 # Get dict of all timelines of form: <timeline_id>:[<tweets>] that we have scores for:
-def getAllTimelines(mk_turk = True, non_mk_turk = True):
+def getAllTimelines(mk_turk = True, non_mk_turk = True, mixed_only = False, single_only = False):
     con = sqlite3.connect(source_db)
     con.row_factory = sqlite3.Row
     c = con.cursor()
     result = c.execute("SELECT * FROM timeline").fetchall()
     timelines = {}
     for row in result:
-        id = str(row['session_id'])+"/"+str(row['question'])
-        if int(row['mk_turk']) == 1:
-            if mk_turk == True:
-                if id not in timelines:
-                    timelines[id] = []
-                timelines[id].append(row)
-        if int(row['mk_turk']) == 0:
-            if non_mk_turk == True:
-                if id not in timelines:
-                    timelines[id] = []
-                timelines[id].append(row)
+        do_this = False
+        if single_only == False and mixed_only == False:
+            do_this = True
+        if mixed_only:
+            if row['question'] == 1:
+                do_this = True
+        if single_only:
+            do_this = False
+            if row['question'] != 1:
+                do_this = True
+        if do_this:
+            id = str(row['session_id'])+"/"+str(row['question'])
+            if int(row['mk_turk']) == 1:
+                if mk_turk == True:
+                    if id not in timelines:
+                        timelines[id] = []
+                    timelines[id].append(row)
+            if int(row['mk_turk']) == 0:
+                if non_mk_turk == True:
+                    if id not in timelines:
+                        timelines[id] = []
+                    timelines[id].append(row)
 
     # Remove timelines with no tweet selections:
     to_remove = []
@@ -102,14 +114,22 @@ def retrieve_tweet_scores():
             user_scores[int(row[0])] = r_count/u
     return (global_scores, user_scores)
 
+count_on = True
 
 def assignScores(timeline, scores):
-    new_timeline = []
+    con = sqlite3.connect(tweets_db)
+    con.row_factory = sqlite3.Row
+    c = con.cursor()
     dictrows = [dict(tweet) for tweet in timeline]
+    co = 0
+    checkers = [10,20,40,100,120]
     for tweet in dictrows:
-        thing = scores[int(tweet['tweet_id'])]
-
-        tweet['score'] = scores[int(tweet['tweet_id'])]
+        co+=1
+        if not count_on:
+            tweet['score'] = scores[int(tweet['tweet_id'])]
+        else:
+            tweet['score'] = tweet['tweet_retweet_count']
+            
     return dictrows
 
 #
@@ -118,21 +138,25 @@ def assignScores(timeline, scores):
 
 # Get data:
 g_scores, u_scores = retrieve_tweet_scores()
-timelines = getAllTimelines(mk_turk = False, non_mk_turk = True)
+timelines = getAllTimelines(mk_turk = True, non_mk_turk = True, single_only = True)
 
 print len(timelines),"timelines to analyse"
 
 # Scoring system in use:
 scores = u_scores
 
-# remove tweets we don't have scores for:
-for timeline in timelines:
-    tweets_to_remove = []
-    for tweet in timelines[timeline]:
-        if int(tweet['tweet_id']) not in g_scores:
-            tweets_to_remove.append(tweet)
-    for tweet in tweets_to_remove:
-        timelines[timeline].remove(tweet)
+
+count_on = False
+
+if not count_on:
+    # remove tweets we don't have scores for:
+    for timeline in timelines:
+        tweets_to_remove = []
+        for tweet in timelines[timeline]:
+            if int(tweet['tweet_id']) not in g_scores:
+                tweets_to_remove.append(tweet)
+        for tweet in tweets_to_remove:
+            timelines[timeline].remove(tweet)
 
 
 # 10) chance of not picking top n non-interesting Tweets (polar opposite to exp1):
@@ -152,7 +176,7 @@ def exp10():
         for tweet in ordered:
             if tweet['selected'] == 1:
                 total_num_tweets += 1
-        if total_num_tweets == 3:
+        if total_num_tweets == 1:
 
             total_tweet_score = 0
             for tweet in ordered:
@@ -174,12 +198,8 @@ def exp10():
                     if selected_check == False:
                         selected[i+1] += 1.0
     for total in totals:
-#        print selected[total]/totals[total] # proportion
-        print selected[total] # raw no. timelines with this case
-
-
-exp10()
-exit()
+        print selected[total]/totals[total] # proportion
+        #print selected[total] # raw no. timelines with this case
 
 # 9) heatmap of chosen Tweets
 def exp9():
@@ -282,7 +302,7 @@ def exp7():
         total_chosen += avg
     print (total_total / len(total_scores))
     print (total_chosen / len(chosen_scores))
- 
+
 
 # 6) compare disparity of selected tweets vs total disparity of timeline
 def exp6():
@@ -361,6 +381,8 @@ def exp4():
     for selected in selected_dict:
         print selected,selected_dict[selected]
 
+
+
 # 3) general matching of selected vs. high-scored
 def exp3():
     for thresh in range(1, 50):
@@ -384,7 +406,6 @@ def exp3():
         print (num_scored_and_interesting/num_scored)
         #print "of selected, we agree:",(num_interesting_and_scored/num_interesting)
         #print "of scored high, THEY agree:",(num_scored_and_interesting/num_scored)
-
 
 # 2) Num selections vs disparity
 def exp2():
@@ -439,7 +460,7 @@ def exp1():
              
             # Only proceed for timelines with a specific number of selections and if
             # the sum of all scores is greater than 1 (prevent cases with loads of 0s)
-            if num_total_selected == 3 and total_score_sum > 0:
+            if num_total_selected == 1 and total_score_sum > 0:
 
                 ordered = sorted(timeline, key=lambda x: x['score'])
                 ordered.reverse() #Ensure HIGHEST score is first
